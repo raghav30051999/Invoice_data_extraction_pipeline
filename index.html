@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>n8n Workflow Explorer | Receipt Extraction Pipeline</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #121212;
+            color: #e0e0e0;
+            margin: 0;
+            padding: 40px;
+            line-height: 1.6;
+        }
+        h1 { color: #ea4b71; border-bottom: 2px solid #333; padding-bottom: 10px; }
+        h2 { color: #888; font-weight: normal; margin-top: -10px; margin-bottom: 30px;}
+        .container { max-width: 900px; margin: 0 auto; }
+        
+        /* Node Card Styling */
+        .node-card {
+            background: #1e1e1e;
+            border: 1px solid #333;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            overflow: hidden;
+            transition: all 0.2s ease;
+        }
+        .node-card:hover { border-color: #ea4b71; transform: translateY(-2px); }
+        
+        .node-header {
+            padding: 15px 20px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #252526;
+        }
+        .node-title { font-weight: bold; font-size: 1.1em; color: #fff; }
+        .node-type { font-size: 0.85em; color: #888; background: #333; padding: 4px 8px; border-radius: 4px; }
+        
+        .node-content {
+            display: none;
+            padding: 20px;
+            background: #181818;
+            border-top: 1px solid #333;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.9em;
+            white-space: pre-wrap;
+            word-break: break-word;
+            color: #d4d4d4;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .toggle-icon { transition: transform 0.2s; color: #888; }
+        .active .toggle-icon { transform: rotate(90deg); color: #ea4b71; }
+        
+        .loading { text-align: center; padding: 50px; color: #888; font-size: 1.2em; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>📄 Receipt Extraction Pipeline</h1>
+    <h2>Interactive n8n Workflow Explorer</h2>
+    <p style="color:#aaa; margin-bottom: 30px;">Click on any node below to inspect its configuration, AI prompts, and custom JavaScript code.</p>
+    
+    <div id="workflow-canvas" class="loading">Loading workflow data...</div>
+</div>
+
+<script>
+    // Fetch the JSON file from your repository
+    fetch('workflow\receipt_processing_pipeline.json')
+        .then(response => response.json())
+        .then(data => {
+            const canvas = document.getElementById('workflow-canvas');
+            canvas.className = ''; // Remove loading class
+            
+            // Loop through all nodes in the JSON
+            data.nodes.forEach(node => {
+                const card = document.createElement('div');
+                card.className = 'node-card';
+                
+                // Extract the most interesting parameter to show as a preview
+                let preview = node.type;
+                if (node.parameters.jsCode) preview = "JavaScript Code";
+                else if (node.parameters.text) preview = "AI Prompt";
+                else if (node.parameters.url) preview = node.parameters.url;
+
+                card.innerHTML = `
+                    <div class="node-header">
+                        <div>
+                            <span class="node-title">${node.name}</span>
+                            <span style="color:#666; margin-left:10px; font-size:0.9em;">(${preview})</span>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <span class="node-type">${node.type.split('.').pop()}</span>
+                            <span class="toggle-icon">▶</span>
+                        </div>
+                    </div>
+                    <div class="node-content">${JSON.stringify(node.parameters, null, 2)}</div>
+                `;
+
+                // Add click event to expand/collapse
+                card.querySelector('.node-header').addEventListener('click', () => {
+                    const content = card.querySelector('.node-content');
+                    const isOpen = content.style.display === 'block';
+                    content.style.display = isOpen ? 'none' : 'block';
+                    card.classList.toggle('active', !isOpen);
+                });
+
+                canvas.appendChild(card);
+            });
+        })
+        .catch(err => {
+            document.getElementById('workflow-canvas').innerText = "Error loading workflow JSON. Ensure the file path is correct.";
+            console.error(err);
+        });
+</script>
+
+</body>
+</html>

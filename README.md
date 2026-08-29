@@ -166,11 +166,11 @@ uvicorn main:app --host 0.0.0.0 --port 8000
 ## 📤 Sample Output
 
 ```csv
-# Column headers are derived directly from the parameters defined in the structured extraction schema.
+Column headers are derived directly from the parameters defined in the structured extraction schema.
 
-# Corresponding extracted values are appended vertically to the last empty row, preserving all previously stored records.
+Corresponding extracted values are appended vertically to the last empty row, preserving all previously stored records.
 
-# Output storage is configurable — either a dedicated file per execution or a single cumulative file updated on every run.
+Output storage is configurable — either a dedicated file per execution or a single cumulative file updated on every run.
 ```
 
 ---

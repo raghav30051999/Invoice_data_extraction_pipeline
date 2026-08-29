@@ -264,7 +264,7 @@
       "alwaysOutputData": true,
       "credentials": {
         "googlePalmApi": {
-          "id": "rXIvykK4FFPYgFeP",
+          "id": "#Replace with your ID#",
           "name": "Google Gemini(PaLM) Api account 2"
         }
       },

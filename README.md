@@ -88,6 +88,15 @@ vertically to daily logs without disrupting existing headers.
 
 ---
 
+## 🧩 n8n Workflow Canvas
+
+Below is the visual representation of the complete automation pipeline as designed in n8n:
+
+![n8n Workflow Canvas](docs/workflow_canvas.png)
+
+> 💡 The full importable workflow JSON is available at
+> [`workflow/receipt_extraction_workflow.json`](workflow/receipt_extraction_workflow.json).
+
 ## ✨ Key Features
 
 - 🔀 **Hybrid Extraction Engine** – Direct text extraction with automatic OCR fallback

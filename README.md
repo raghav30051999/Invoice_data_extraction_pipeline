@@ -46,7 +46,7 @@ vertically to daily logs without disrupting existing headers.
 ┌───────────────────┐
 │ Scanned /         │
 │ Handwritten?      │
-└──────────────┬───┘
+└───────────────┬───┘
  YES│           │NO
     ▼           ▼
 ┌───────┐  ┌──────────┐

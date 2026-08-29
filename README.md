@@ -1,7 +1,7 @@
-# 📄 AI-Driven Municipal Receipt Extraction Pipeline
+# 📄 AI-Invoice Processing & Data Extraction Pipeline
 
 > An automated, AI-powered document processing pipeline that extracts structured
-> financial and entity data from municipal lease & rent receipts — featuring smart
+> financial and entity data from Invoices — featuring smart
 > OCR fallback, Telugu language support, and Excel-ready output.
 
 ![Workflow Automation](https://img.shields.io/badge/n8n-Workflow_Automation-EA4B71?style=flat-square)

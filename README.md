@@ -52,8 +52,8 @@ vertically to daily logs without disrupting existing headers.
 ┌───────┐  ┌──────────┐
 │  OCR  │  │ Direct   │
 │       │  │ Text     │
-└───┬───┘  └────┬─────
-    └──────────┘
+└───┬───┘  └────┬─────┘
+    └───────────┘
           ▼
 ┌───────────────────┐
 │ AI Agent Data     │

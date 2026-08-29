@@ -262,12 +262,6 @@
       "id": "6077cd42-45d3-4add-8702-872cef8b8cb9",
       "name": "Google Gemini Chat Model",
       "alwaysOutputData": true,
-      "credentials": {
-        "googlePalmApi": {
-          "id": "#Replace with your ID#",
-          "name": "Google Gemini(PaLM) Api account 2"
-        }
-      },
       "notes": "=You are a deterministic document data extraction engine.\nYour purpose is to extract structured information from the provided data.\n\nYou must strictly follow these rules:\n1. Extract only information that is explicitly present in the provided text.\n2. Do NOT guess, infer, or assume anything.\n3. Do NOT calculate or modify values.\n4. Do NOT reformat numbers unless converting to proper number type.\n5. Do NOT modify wording from the original text.\n6. If a value is not clearly present, return null.\n7. Never fabricate dates, names, numbers, or references.\n\nAll extracted values must match exactly as written in the text.\n\nExtract the required fields from the following document text:\n\n{{ $json.text }}"
     },
     {
@@ -507,9 +501,5 @@
       ]
     }
   },
-  "pinData": {},
-  "meta": {
-    "templateCredsSetupCompleted": true,
-    "instanceId": "dbc4b2a046975af4d5336f379865ce2ca83a925d33e62366dac1f66e65f9fd17"
-  }
+  "pinData": {}
 }

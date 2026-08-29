@@ -1,0 +1,515 @@
+{
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "c09f4670-7d08-44ff-8336-ac1f9688f8e0",
+      "name": "When clicking 'Test workflow'",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        448,
+        608
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a1b2c3d4",
+              "name": "storage",
+              "value": "per_day",
+              "type": "string"
+            },
+            {
+              "id": "b2c3d4e5",
+              "name": "input_folder",
+              "value": "/files/input/*.*",
+              "type": "string"
+            },
+            {
+              "id": "c3d4e5f6",
+              "name": "output_folder",
+              "value": "/files/output",
+              "type": "string"
+            },
+            {
+              "id": "d4e5f6g7",
+              "name": "extraction_schema",
+              "value": "={\n  \"document_id\": {\n    \"type\": \"string\",\n    \"description\": \"Document reference ID or number\"\n  },\n  \"document_date\": {\n    \"type\": \"date\",\n    \"description\": \"Document date in DD/MM/YYYY format\"\n  },\n  \"entity_name\": {\n    \"type\": \"string\",\n    \"description\": \"Organization or person name mentioned in document\"\n  },\n  \"primary_amount\": {\n    \"type\": \"number\",\n    \"description\": \"Primary monetary value or total amount\"\n  },\n  \"document_type\": {\n    \"type\": \"string\",\n    \"description\": \"Type of document (invoice, receipt, letter, etc.)\"\n  },\n  \"issuing_authority\": {\n    \"type\": \"string\",\n    \"description\": \"Government department or authority that issued the document\"\n  }\n}",
+              "type": "object"
+            },
+            {
+              "id": "e5f6g7h8",
+              "name": "batch_size",
+              "value": 5,
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "5025bd6b-0e29-4f80-b12b-1fdd3ecf0270",
+      "name": "Set Configuration",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        672,
+        608
+      ],
+      "notes": "Configure: storage (per_day/per_run), paths, extraction schema, batch size"
+    },
+    {
+      "parameters": {
+        "fileSelector": "={{ $json.input_folder }}",
+        "options": {}
+      },
+      "id": "2e003565-8a8f-4cff-9271-a681a688e354",
+      "name": "Read Binary Files",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [
+        880,
+        608
+      ],
+      "alwaysOutputData": true,
+      "notes": "Reads all PDF, DOCX, and image files from input folder"
+    },
+    {
+      "parameters": {
+        "batchSize": "={{ $('Set Configuration').item.json.batch_size }}",
+        "options": {}
+      },
+      "id": "760b39c1-8aae-4cd3-9c8d-a03a72f4fd91",
+      "name": "Split In Batches",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        1104,
+        608
+      ],
+      "notes": "Process 5 documents at a time to manage memory"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nfunction corruptionScore(t) {\n    if (!t) return 999;\n\n    const badPatterns = [\n        \"à°\",\n        \"à±\",\n        \"Ē\",\n        \"÷\",\n        \"Á\",\n        \"Ƿ\",\n        \"�\"\n    ];\n\n    let score = 0;\n\n    for (const p of badPatterns) {\n        if (t.includes(p)) {\n            score += 2;\n        }\n    }\n\n    let suspicious = 0;\n\n    for (const ch of t) {\n        const code = ch.charCodeAt(0);\n\n        if (\n            code > 127 &&\n            !/[\\u0C00-\\u0C7F]/.test(ch)\n        ) {\n            suspicious++;\n        }\n    }\n\n    const ratio = suspicious / Math.max(t.length, 1);\n\n    if (ratio > 0.15) {\n        score += 3;\n    }\n\n    return score;\n}\n\nreturn items.map(item => {\n\n    const text =\n        item.json.text ??\n        item.json.content ??\n        item.json.extracted_text ??\n        \"\";\n\n    const score = corruptionScore(text);\n\n    const needsOCR =\n        text.trim().length === 0 ||\n        text.length < 50 ||\n        score >= 3;\n\n    return {\n        json: {\n            ...item.json,\n            text,\n            corruption_score: score,\n            needs_ocr: needsOCR\n        },\n        binary: item.binary\n    };\n});"
+      },
+      "id": "4ea3f951-3b73-4c55-b653-c611358942a8",
+      "name": "Extract Text & Detect Corruption",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1584,
+        688
+      ],
+      "notes": "Extracts text and runs corruption detection algorithm"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "6b8388cb-ced6-486e-8f8a-2e55c0cbe53d",
+              "leftValue": "={{ $json.needs_ocr }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "ef142788-b138-4014-bec3-1b510840984b",
+      "name": "IF Needs OCR",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1808,
+        608
+      ],
+      "notes": "Routes corrupted documents to OCR, clean documents bypass OCR"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://python-worker:8000/run-script",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"file_path\": \"input/{{ $json.fileName }}\"\n}",
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "id": "a6bf9b94-8de5-46c9-bd31-4fd8aaa306be",
+      "name": "HTTP Request - Python OCR Worker",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2016,
+        496
+      ],
+      "continueOnFail": true,
+      "notes": "Sends file path to Python worker for OCR processing"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse OCR response and merge with original data\nconst items = $input.all();\nconst results = [];\n\nfor (const item of items) {\n  const ocrText = item.json.text || '';\n  const originalData = item.json.original_data || {};\n  \n  results.push({\n    json: {\n      fileName: item.json.fileName,\n      filePath: item.json.filePath,\n      text: ocrText.trim(),\n      processing_method: 'ocr',\n      original_data: originalData\n    }\n  });\n}\n\nreturn results;"
+      },
+      "id": "92a9bfdd-5629-4418-96c3-a2493a49a91d",
+      "name": "Parse OCR Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2208,
+        496
+      ],
+      "notes": "Extracts OCR text from Python worker response"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Pass through clean text without OCR\nconst items = $input.all();\nconst results = [];\n\nfor (const item of items) {\n  results.push({\n    json: {\n      fileName: item.json.fileName,\n      filePath: item.json.filePath,\n      text: item.json.text,\n      processing_method: 'direct',\n      original_data: item.json.original_data || {}\n    }\n  });\n}\n\nreturn results;"
+      },
+      "id": "b415f86f-f38b-4ca3-9ceb-6f9ccfcec3ee",
+      "name": "Use Direct Text",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2016,
+        704
+      ],
+      "notes": "Uses directly extracted text for clean documents"
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "options": {}
+      },
+      "id": "918c2e99-8b06-40bb-8876-67fb2499dd2b",
+      "name": "Aggregate Batch Results",
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        1344,
+        336
+      ],
+      "notes": "Collects all processed documents from current batch"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are a deterministic document data extraction engine.\nYour purpose is to extract structured information from the provided data.\n\nYou must strictly follow these rules:\n1. Extract only information that is explicitly present in the provided text.\n2. Do NOT guess, infer, or assume anything.\n3. Do NOT calculate or modify values.\n4. Do NOT reformat numbers unless converting to proper number type.\n5. Do NOT modify wording from the original text.\n6. If a value is not clearly present, return null.\n7. Never fabricate dates, names, numbers, or references.\n\nAll extracted values must match exactly as written in the text.\n\nExtract the required fields from the following document text:\n\n{{ $json.text }}\n\nExtract only the required fields.\n\nReturn ONLY valid JSON.\n\nDo not wrap the output inside markdown.\n\nDo not explain anything.\n\nIf a field is not present, return:\n- \"\" for strings\n- 0 for numbers\n\nDetermine:\n\npaid_from = earliest Month & Year in the receipt.\npaid_till = latest Month & Year in the receipt.\n\nFor rent_amount, penalty_amount, cgst_amount, sgst_amount and grand_total, use the values from the Total row, not individual monthly rows.",
+        "hasOutputParser": true,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        2592,
+        704
+      ],
+      "id": "d7945974-16e6-400b-bd79-aa6285f0f301",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"receipt_number\": { \"type\": \"string\" },\n    \"receipt_date\": { \"type\": \"string\" },\n    \"lessee_id\": { \"type\": \"string\" },\n    \"lessee_name\": { \"type\": \"string\" },\n    \"asset_name\": { \"type\": \"string\" },\n    \"asset_code\": { \"type\": \"string\" },\n    \"shop_number\": { \"type\": \"string\" },\n    \"paid_from\": { \"type\": \"string\" },\n    \"paid_till\": { \"type\": \"string\" },\n    \"rent_amount\": { \"type\": \"number\" },\n    \"penalty_amount\": { \"type\": \"number\" },\n    \"cgst_amount\": { \"type\": \"number\" },\n    \"sgst_amount\": { \"type\": \"number\" },\n    \"st_amount\": { \"type\": \"number\" },\n    \"grand_total\": { \"type\": \"number\" },\n    \"amount_received\": { \"type\": \"number\" },\n    \"payment_type\": {\n      \"type\": \"string\",\n      \"description\": \"Rent, Advance Collection or Other\"\n    }\n  },\n  \"required\": [\n    \"receipt_number\",\n    \"receipt_date\",\n    \"lessee_name\",\n    \"shop_number\",\n    \"grand_total\"\n  ]\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        2752,
+        944
+      ],
+      "id": "0fb1aefc-3f29-41ea-a7ba-a5c01738e2fa",
+      "name": "Structured Output Parser",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst now = new Date();\n\n// 1. Get config\nconst config = $('Set Configuration').item?.json || {};\nconst storage = config.storage || 'per_day';\nconst outputFolder = config.output_folder || '/files/output';\n\nconst dateStr = now.toISOString().split('T')[0];\nconst timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-');\n\nconst fileName = storage === 'per_day' \n  ? `extracted_data_${dateStr}.csv`\n  : `extracted_data_${dateStr}_${timeStr}.csv`;\n  \nconst outputPath = `${outputFolder}/${fileName}`;\n\n// 2. Check if file exists (Requires \"Check If File Exists\" node before this)\nlet fileExists = false;\ntry {\n  const checkNode = $('Check If File Exists');\n  if (checkNode && checkNode.first().json) {\n    fileExists = true;\n  }\n} catch (e) {\n  fileExists = false; \n}\n\n// 3. Define headers\nconst schemaHeaders = [\n  \"extraction_timestamp\",\n  \"receipt_number\",\n  \"receipt_date\",\n  \"lessee_id\",\n  \"lessee_name\",\n  \"asset_name\",\n  \"asset_code\",\n  \"shop_number\",\n  \"paid_from\",\n  \"paid_till\",\n  \"rent_amount\",\n  \"penalty_amount\",\n  \"cgst_amount\",\n  \"sgst_amount\",\n  \"st_amount\",\n  \"grand_total\",\n  \"amount_received\",\n  \"payment_type\"\n];\n\nconst allRecords = [];\n\n// 4. Extract and flatten data from aggregated structure\nfor (const item of items) {\n  let dataArray = [];\n  \n  // Handle the aggregated structure (e.g., { \"data\": [{ \"output\": {...} }, ...] })\n  if (Array.isArray(item.json.data)) {\n    dataArray = item.json.data;\n  } else if (Array.isArray(item.json.output)) {\n    dataArray = item.json.output;\n  } else if (Array.isArray(item.json)) {\n    dataArray = item.json;\n  } else {\n    dataArray = [item.json];\n  }\n\n  for (const record of dataArray) {\n    // Unwrap the 'output' object if it exists\n    const data = record.output || record;\n    \n    if (data && (data.receipt_number || data.lessee_name)) {\n      const cleanRecord = {\n        extraction_timestamp: now.toISOString(),\n        receipt_number: data.receipt_number || '',\n        receipt_date: data.receipt_date || '',\n        lessee_id: data.lessee_id || '',\n        lessee_name: data.lessee_name || '',\n        asset_name: data.asset_name || '',\n        asset_code: data.asset_code || '',\n        shop_number: data.shop_number || '',\n        paid_from: data.paid_from || '',\n        paid_till: data.paid_till || '',\n        rent_amount: data.rent_amount ?? '',\n        penalty_amount: data.penalty_amount ?? '',\n        cgst_amount: data.cgst_amount ?? '',\n        sgst_amount: data.sgst_amount ?? '',\n        st_amount: data.st_amount ?? '',\n        grand_total: data.grand_total ?? '',\n        amount_received: data.amount_received ?? '',\n        payment_type: data.payment_type || ''\n      };\n      \n      // Excel human-readability fix (preserves leading zeros)\n      if (cleanRecord.shop_number) cleanRecord.shop_number = `\\t${cleanRecord.shop_number}`;\n      if (cleanRecord.asset_code) cleanRecord.asset_code = `\\t${cleanRecord.asset_code}`;\n      if (cleanRecord.lessee_id) cleanRecord.lessee_id = `\\t${cleanRecord.lessee_id}`;\n      if (cleanRecord.receipt_number) cleanRecord.receipt_number = `\\t${cleanRecord.receipt_number}`;\n      \n      allRecords.push(cleanRecord);\n    }\n  }\n}\n\n// 5. Build CSV string\nlet csvContent = '';\n\n// Add headers ONLY if creating a new file\nif (!fileExists && allRecords.length > 0) {\n  csvContent += schemaHeaders.join(',') + '\\n';\n}\n\n// Add data rows vertically\nfor (const record of allRecords) {\n  const row = schemaHeaders.map(header => {\n    let value = record[header] ?? '';\n    if (typeof value === 'object') value = JSON.stringify(value);\n    if (typeof value === 'string' && (value.includes(',') || value.includes('\"') || value.includes('\\n'))) {\n      return `\"${value.replace(/\"/g, '\"\"')}\"`;\n    }\n    return value;\n  });\n  csvContent += row.join(',') + '\\n';\n}\n\n// 6. Add UTF-8 BOM and return as binary\nconst BOM = '\\uFEFF';\nconst csvWithBOM = BOM + csvContent;\n\nreturn [{\n  json: {\n    filePath: outputPath,\n    fileName: fileName,\n    recordCount: allRecords.length\n  },\n  binary: {\n    data: {\n      data: Buffer.from(csvWithBOM, 'utf-8').toString('base64'),\n      fileName: fileName,\n      mimeType: 'text/csv'\n    }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1536,
+        336
+      ],
+      "id": "071b6bd1-4954-4d26-9036-78d58b4694f0",
+      "name": "Format for excel"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemma-4-31b-it",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        2512,
+        944
+      ],
+      "id": "6077cd42-45d3-4add-8702-872cef8b8cb9",
+      "name": "Google Gemini Chat Model",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googlePalmApi": {
+          "id": "rXIvykK4FFPYgFeP",
+          "name": "Google Gemini(PaLM) Api account 2"
+        }
+      },
+      "notes": "=You are a deterministic document data extraction engine.\nYour purpose is to extract structured information from the provided data.\n\nYou must strictly follow these rules:\n1. Extract only information that is explicitly present in the provided text.\n2. Do NOT guess, infer, or assume anything.\n3. Do NOT calculate or modify values.\n4. Do NOT reformat numbers unless converting to proper number type.\n5. Do NOT modify wording from the original text.\n6. If a value is not clearly present, return null.\n7. Never fabricate dates, names, numbers, or references.\n\nAll extracted values must match exactly as written in the text.\n\nExtract the required fields from the following document text:\n\n{{ $json.text }}"
+    },
+    {
+      "parameters": {
+        "jsCode": "const text = $json.extracted_text || $json.text || \"\";\n\nconst receipts = text\n    .split(/(?=Peddapuram Municipality\\s+LEASE AND AGREEMENT RECEIPT)/g)\n    .map(r => r.trim())\n    .filter(r => r.length > 0);\n\nreturn receipts.map((receipt, index) => ({\n    json: {\n        receipt_index: index + 1,\n        receipt_text: receipt\n    }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2400,
+        496
+      ],
+      "id": "dd3e4ec8-fb8d-4a10-8707-e8dc9bae1ae0",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        1376,
+        688
+      ],
+      "id": "83d6f98a-afce-45f2-9d7d-6491462db06e",
+      "name": "Extract from File"
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "={{ $json.filePath }}",
+        "options": {
+          "append": false
+        }
+      },
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1.1,
+      "position": [
+        1744,
+        336
+      ],
+      "id": "241973ca-53f4-4e89-a752-349989a12e2b",
+      "name": "Read/Write Files from Disk"
+    }
+  ],
+  "connections": {
+    "When clicking 'Test workflow'": {
+      "main": [
+        [
+          {
+            "node": "Set Configuration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Configuration": {
+      "main": [
+        [
+          {
+            "node": "Read Binary Files",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Binary Files": {
+      "main": [
+        [
+          {
+            "node": "Split In Batches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split In Batches": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Batch Results",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Extract from File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Text & Detect Corruption": {
+      "main": [
+        [
+          {
+            "node": "IF Needs OCR",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Needs OCR": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request - Python OCR Worker",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Use Direct Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request - Python OCR Worker": {
+      "main": [
+        [
+          {
+            "node": "Parse OCR Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse OCR Response": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Use Direct Text": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate Batch Results": {
+      "main": [
+        [
+          {
+            "node": "Format for excel",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Split In Batches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format for excel": {
+      "main": [
+        [
+          {
+            "node": "Read/Write Files from Disk",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract from File": {
+      "main": [
+        [
+          {
+            "node": "Extract Text & Detect Corruption",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "dbc4b2a046975af4d5336f379865ce2ca83a925d33e62366dac1f66e65f9fd17"
+  }
+}

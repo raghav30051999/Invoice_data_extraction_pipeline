@@ -95,7 +95,7 @@ Below is the visual representation of the complete automation pipeline as design
 ![n8n Workflow Canvas](docs/workflow_canvas.png)
 
 > 💡 The full importable workflow JSON is available at
-> [`workflow/receipt_extraction_workflow.json`](workflow/receipt_extraction_workflow.json).
+> [`workflow/receipt_extraction_workflow.json`](workflow/receipt_processing_pipeline.json).
 
 ## ✨ Key Features
 
